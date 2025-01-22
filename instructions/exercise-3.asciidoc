@@ -1,0 +1,71 @@
+Walk motion
+===========
+
+Objective
+---------
+Compute a walk motion for the biped robot.
+
+Exercise 3
+----------
+
+The input of the walk motion is
+
+* an initial configuration of the robot standing on its two feet,
+* a sequence of points in the horizontal plane corresponding to steps
+
+The successive steps of the computation are
+
+* the computation of a desired CoP trajectory,
+* the computation of a center of mass trajectory that minimizes the integral of the CoP error,
+* the computation of the foot trajectory,
+* the computation of a whole-body motion of the robot by inverse kinematics.
+
+The plots below give an idea of the expected results of some of the above steps.
+
+image::figures/walk-plots.png[width="100%",alt="walk trajectories"]
+
+Computation of a desired trajectory of the center of pressure
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In file `script/cop_des.py`, method `CoPDes.__init__`, define the desired trajectory of the center
+of pressure by appending affine functions in `self.segments`. The CoP trajectory should
+
+* start from `start` input position,
+* move to `steps[0]` in time `self.double_support_time`,
+* for each step
+  - stay constant for time `self.single_support_time`,
+  - move to next step in time `self.double_support_time`,
+* go from last step to `end` position in time `self.double_support_time`.
+
+NOTE: it may be helpful to add a constant function after the last segment so that the desired CoP
+remains constant after the end of the motion.
+
+Computation of the trajectory of the center of mass
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In file `script/com_trajectory.py`, method `ComTrajectory.compute`, compute the trajectory of the
+center of mass by optimal control. The discretized trajectory will be stored in member `self.X`,
+a `numpy.array` of size `2*self.N` composed of the (x,y) values of the center of mass discretized
+and stacked in a single vector.
+
+Computation of the whole-body walk motion
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In file `script/walking_motion.py`, implement class `SwingFootTrajectory`, methods `__init__` and
+`__call__`. The method should define a foot trajectory in such a way that the trajectory starts at
+`init` at `t_init` and ends at `end` at `t_end`, where `init` and `end` are 3-dimensional
+`numpy.array`.
+
+The trajectory should start and end with a zero velocity. The z coordinate of the trajectory should
+start and end with the value provided by `init` and `end` (we assume they are the same) and with
+0 velocity at `t_init` and `t_end`.
+
+NOTE: Use a polynomial of degree 3 for (x,y) and of degree 4 for z.
+
+In method `WalkingMotion.compute`,
+
+* build the trajectory of the left and right feet as a sequence of
+`SwingFootTrajectory` and `Constant` instances,
+* compute the trajectory of the center of mass using `ComTrajectory` class,
+* by inverse kinematics, compute a discretized sequence of robot configurations starting from `q0`,
+return this sequence.

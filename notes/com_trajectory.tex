@@ -1,0 +1,277 @@
+\documentclass{article}
+
+\usepackage{graphics}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{amssymb}
+\usepackage{amsmath}
+
+\newcommand\vect[1]{\mathbf{#1}}
+\newcommand\x{\vect{x}}
+\newcommand\dx{\vect{\dot{x}}}
+\newcommand\ddx{\vect{\ddot{x}}}
+\newcommand\reals{\mathbb{R}}
+\newcommand\Xbar{\bar{X}}
+
+\title{Computation of a walk trajectory by optimal control}
+\author{Florent Lamiraux}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+We wish to compute the trajectory of the center of mass of a legged robot using optimal control.
+From a time stamped sequence of steps, we first compute a desired trajectory of the center of
+pressure so that the center of pressure is
+\begin{itemize}
+\item under the support foot when the robot is in single support,
+\item on the line segment linking the foot centers when the robot is in double support.
+\end{itemize}
+Then, we compute a trajectory of the center of mass that minimizes the integral of the square
+distance between the center of pressure and the desired center of pressure with boundary conditions:
+the trajectory should start from the initial position of the center of mass and end above the
+middle of the feet in the end configuration.
+
+In the next section, we establish the relation between the center of mass, its acceleration and
+the center of pressure.
+
+\section{The table cart model}
+
+\begin{figure}
+  \centerline{
+    \input{figures/table-cart.pdf_t}
+  }
+  \caption{Simplified model of a legged robot: the robot is in contact with the ground by one
+    or two feet defining a support polygon. With the motors, the robot controls the position of its
+    center of mass. This model neglects the effect of rotations of the robot bodies.}
+  \label{fig:table cart model}
+\end{figure}
+
+We represent a legged robot using the table cart model represented in Figure~\ref{fig:table cart model}. Using the motors, the robot moves its center of mass in a \textbf{horizontal plane}. Without loss of generality, we assume that the contact forces between the ground and the robot feet apply at discrete points. The static equilibrium of the table implies that the sum of external forces and moments acting on it vanish. We consider here only the table. The cart acceleration thus apply an external force:
+\begin{eqnarray}
+  f_1 + f_2 - mg &=& 0 \\
+  f_T - m\ddot{x} &=& 0 \\
+  \label{eq:1}
+  x_2\ f_2 + x_1\ f_1 - x\ mg + z\ m\ddot{x} &=& 0
+\end{eqnarray}
+Let us now define the center of pressure $CoP$ as the barycenter of the contact points with coefficients the normal contact force. Then
+$$
+x_{CoP} = \frac{x_1 f_1 + x_2 f_2}{f_1+f2} = \frac{x_1 f_1 + x_2 f_2}{mg}
+$$
+and from Equation~(\ref{eq:1}) above,
+\begin{eqnarray}
+  mg x_{CoP} &=&  x\ mg - z\ m\ddot{x}\\
+  x_{CoP} &=& x - \frac{z}{g}\ddot{x}
+\end{eqnarray}
+Repeating the same reasoning to the $y$-coordinate of the center of pressure, we get the following equality:
+\begin{equation}\label{eq:CoP}
+  \vect{CoP} = \x - \frac{z}{g}\ddx,
+\end{equation}
+where $\x=(x,y)$ is the projection of the center of mass onto the ground.
+
+\paragraph{Remark:} the normal coordinates of the contact forces are non negative. As a consequence, the center of pressure belongs always to the polygon support\footnote{The convex hull of the contact points in the plane.}.
+
+\section{Walking motion}
+
+If we now consider a humanoid robot walking on a flat ground and if we assume that along the motion,
+\begin{itemize}
+\item the center of mass of the robot moves in a horizontal plane of height $z$,
+\item the effect of the rotations of the leg links are negligible,
+\end{itemize}
+the center of pressure of the contact forces applied by the ground on the robot follow Equation~(\ref{eq:CoP}).
+
+Given a set of foot positions in the plane, we can define a walking motion as follows:
+\begin{enumerate}
+\item define a desired trajectory of the center of pressure in the plane in such a way that the center of pressure is under the support foot in single support, and on the line segment linking the feet in double support,
+\item find a trajectory of the center of mass $\x$ of constant height in such a way that the corresponding trajectory of the center of pressure given by~(\ref{eq:CoP}) is as close as possible to the desired trajectory,
+\item define trajectories for the feet,
+\item find a whole-body trajectory of the robot by inverse kinematics.
+\end{enumerate}
+
+\subsection{Reference trajectory of the center of pressure}
+
+\begin{figure}
+  \centerline{
+    \def\svgwidth{\linewidth}
+    \input{figures/cop-des.pdf_tex}
+  }
+  \caption{Desired trajectory of the center of pressure and of the feet.}
+  \label{git:cop-des}
+\end{figure}
+
+As explained in the previous section the trajectory of the desired center of pressure $CoP_{des}$ is
+piecewise affine as shown on Figure~\ref{git:cop-des}. The timing of the trajectory is defined by 2 parameters:
+\begin{itemize}
+\item \texttt{single\_support\_time}: the time during which the desired center of pressure is static and a foot moves from a position to the next one,
+  \item \texttt{double\_support\_time}: the time during which the feet both on the ground and the desired center of pressure moves from one foot to the next one.
+\end{itemize}
+
+\subsection{Trajectory of the center of mass}
+
+After defining the desired trajectory of the center of pressure, the trajectory of the center of mass could be obtained by solving the differential equation given by~(\ref{eq:CoP}):
+$$
+\x - \frac{z}{g}\ddx = \vect{CoP}_{des}(t).
+$$
+Unfortunately, the solution to this differential equation is uniquely defined by the initial value and the initial velocity, so there is no way to constrain the final position and the final velocity. Moreover, the solution to the differential equation is unstable.
+
+For these reasons, we propose to compute the trajectory of the center of mass by solving an optimal control problem:
+\begin{equation}
+  \begin{array}{l}
+    \min_{\x()}\frac{1}{2}\int_0^T \|\x(t) - \frac{z}{g}\ddx(t) - \vect{CoP}_{des}(t)\|^2 dt\\
+    \x(0)=\x_0\\
+    \x(T)=\x_f\\
+    \dx(0)=\dx(T)=0
+  \end{array}
+    \label{eq:optimal-control}
+\end{equation}
+where
+\begin{itemize}
+\item $T$ is the duration of the trajectory,
+\item $\x_0$ and $\x_F$ are the initial and final positions of the center of mass.
+\end{itemize}
+
+\subsubsection{Discretization}
+
+To solve the optimal control problem, we discretize the center of mass trajectory as follows:
+\begin{eqnarray}\label{eq:X}
+  X &=& \left(\x_1,\x_2,\cdots,\x_N\right)\in\reals^{2N}\\
+  \x_i &=& \left(x(i\,\Delta t), y(i\,\Delta t)\right),\ i\in\left\{1,\cdots,N\right\}
+\end{eqnarray}
+where
+\begin{itemize}
+\item $\Delta t$ is the time step,
+\item $\x_0\in\reals^2$ is the initial position of the center of mass,
+\item $\x_i\in\reals^2$ is the position of the center of mass at time $i\,\Delta t$,
+\item $\x_{N+1}\in\reals^2$ is the final position of the center of mass,
+\item $T = (N+1)\ \Delta t$ is the duration of the trajectory.
+\end{itemize}
+We approximate $\dx$ by
+\begin{eqnarray}
+  \label{eq:dX}
+  \dot{X}&=&\left(\frac{\x_1-\x_0}{\Delta t}, \frac{\x_2-\x_1}{\Delta t},\cdots,\frac{\x_{N+1}-\x_N}{\Delta t}\right)\in\reals^{2N+2}\\
+  \label{eq:dotX}
+  &=&  \frac{1}{\Delta t}(D\,X + d_0)\\
+  &\approx& \left(\dx(0), \dx(\Delta t),\cdots,\dx(N \Delta t)\right) \\
+  &=& \left(\dx_0, \dx_1,\cdots,\dx_N\right) \\
+\end{eqnarray}
+with
+$$
+D=\left(\begin{array}{ccccc}
+  I_2    & 0      & 0      & \cdots & 0\\
+  -I_2   & I_2    & 0      & \cdots & 0 \\
+  \vdots & \ddots & \ddots & \vdots & \vdots \\
+  \vdots & \vdots & \ddots & \ddots & \vdots \\
+  0      &   0    & \cdots & -I_2   &  I_2\\
+  0      &   0    & \cdots &   0    &  -I_2\\
+\end{array}\right)\ \mbox{and}\
+d_0 = \left(\begin{array}{c}-\x0\\ 0 \\ \vdots \\ \vdots \\ 0 \\ \x_{N+1}\end{array}\right).
+$$
+$I_2$ is the identity matrix of dimension 2.
+We approximate $\ddx$ by
+\begin{eqnarray*}
+  \ddot{X} &=& \left(\frac{\dx_1-\dx_0}{\Delta t}, \cdots, \frac{\dx_{N}-\dx_{N-1}}{\Delta t}\right)\\
+  &=& \frac{1}{\Delta t}\left(\begin{array}{cccccc}
+    -I_2   & I_2    & 0      & \cdots & \cdots & 0 \\
+    0      & -I_2   & I_2    & 0      & \cdots & 0 \\
+    \vdots & \vdots & \ddots & \ddots & \cdots &\vdots \\
+    0      & 0      & \cdots & \cdots & -I_2   & I_2
+  \end{array}\right) \dot{X} \\
+  \label{eq:ddotX}
+  &=& -\frac{1}{\Delta t} D^T \dot{X} = -\frac{1}{\Delta t^2} (D^TD\,X + D^Td_0))
+\end{eqnarray*}
+
+\subsubsection{Approximation of the integral}
+
+Let $\mathbf{f}$ be a function defined over interval $[0,T]$ with values in $\mathbf{R}^2$. We approximate integral
+\begin{equation}
+\label{eq:integral}
+\int_{0}^{T} \|\mathbf{f}(t)\|^2dt
+\end{equation}
+by
+\begin{equation}\label{eq:integral-approx}
+\Delta t \sum_{i=0}^N \|\mathbf{f}(i\ \Delta t)\|^2.
+\end{equation}
+If we define $F=(\mathbf{f}(0), \mathbf{f}(\Delta t),\cdots,\mathbf{f}(N\Delta t))$, (\ref{eq:integral-approx}) becomes $\Delta t\|F\|^2$.
+
+Using this approximation, (\ref{eq:optimal-control}) becomes
+\begin{equation}
+  \begin{array}{l}
+    \min_{X}\frac{1}{2}\|X - \frac{z}{g}\ddot{X} - CoP_{des}\|^2\\
+    \dx(0)=\dx(T)=0
+  \end{array}
+  \label{eq:optimal-approx}
+\end{equation}
+where $CoP_{des}$ is the vector of dimension $2N+2$ obtained by stacking the values of $\vect{CoP}_{des}$ at $t=i\Delta t, i\in\{0,\cdots,N\}$.
+
+\subsection{Resolution}
+
+Let us temporarily ignore the boundary conditions $\dx(0)=\dx(T)=0$ in~(\ref{eq:optimal-approx}).
+Replacing $\dot{X}$ and $\ddot{X}$ by expressions~(\ref{eq:dotX}) and (\ref{eq:ddotX}), we get
+\begin{eqnarray*}
+&&  \min_{X}\frac{1}{2}\|X - \frac{z}{g}(-\frac{1}{\Delta t^2} (D^TD\,X + D^Td_0))) - CoP_{des}\|^2\\
+  &=&  \min_{X}\frac{1}{2}\left\|(I_{2N} + \frac{z}{g\Delta t^2}D^TD) X + \frac{z}{g\Delta t^2}D^Td_0 - CoP_{des}\right\|^2\\
+  &=& \min_{X}\frac{1}{2}\left\| AX - b \right\|^2
+\end{eqnarray*}
+with
+$$
+A = I_{2N} + \frac{z}{g\Delta t^2}D^TD\ \mbox{and}\
+  b = CoP_{des} - \frac{z}{g\Delta t^2}D^Td_0
+$$
+
+\begin{eqnarray}
+  \frac{1}{2}\left\| AX - b \right\|^2 &=& \frac{1}{2}(AX - b)^T(AX - b)\\
+  &=& \frac{1}{2}(X^T A^TAX - X^TA^T b - b^TAX + b^Tb)\\
+  \label{eq:polynomial}
+  &=& \frac{1}{2} X^T A^TAX -b^TAX + \frac{1}{2}b^Tb
+\end{eqnarray}
+since $X^TA^T b$ and $b^TAX$ are  $1\times 1$ matrices transpose of each other, thus they are equal.
+
+Expression (\ref{eq:polynomial}) is a polynomial of degree 2 in $X$. The gradient of this
+expression is $A^TAX -A^Tb$. Thus the minimum is reached if and only if the gradient is equal to 0:
+$$
+X = (A^TA)^{-1}A^Tb.
+$$
+$$
+A^{+} = (A^TA)^{-1}A^T
+$$
+is also called the Moore-Penrose pseudo-inverse of $A$.
+
+\subsubsection{Taking into account the boundary condition}
+
+In the previous section, we dropped the boundary conditions $\dx(0)=\dx(T)=0$ in~(\ref{eq:optimal-approx}). In order to take them into account, we simply need to enforce
+$$
+\x_{1} = \x_{0}\ \mbox{and}\ \x_{N} = \x_{N+1}
+$$
+Let us denote by $\Xbar\in\reals^{N-2}$ the reduced vector
+$$
+\Xbar = (\x_2,...,\x_{N-1})\in\reals^{2N-4}.
+$$
+We can express $X$ with respect to $\Xbar$:
+$$
+X = C\Xbar + d
+$$
+with
+$$
+C = \left(\begin{array}{c}
+  0_{2\times 2N-4}\\
+  I_{2N-4}\\
+  0_{2\times 2N-4}
+\end{array}\right)\
+\mbox{and}\ d=\left(\begin{array}{c}
+  \x_0\\
+  0_{2N-4}\\
+  \x_{N+1}
+\end{array}\right)
+$$
+We can subsitute $X$ by $\Xbar$ to get
+\begin{eqnarray*}
+  AX-b = AC\Xbar+Ad - b
+\end{eqnarray*}
+The value of $\Xbar$ that minimizes the above expression is given by
+$$
+\Xbar = (AC)^{+}(b-Ad).
+$$
+\end{document}
+

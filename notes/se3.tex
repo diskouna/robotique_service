@@ -1,0 +1,195 @@
+\documentclass{article}
+
+\usepackage{graphics}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{amssymb}
+\usepackage{amsmath}
+
+\newcommand\vect[1]{\mathbf{#1}}
+\newcommand\x{\vect{x}}
+\newcommand\dx{\vect{\dot{x}}}
+\newcommand\ddx{\vect{\ddot{x}}}
+\newcommand\reals{\mathbb{R}}
+\newcommand\trans{\mathbf{t}}
+\newcommand\dtrans{\mathbf{\dot{t}}}
+
+\title{Rigid-body motion}
+\author{Florent Lamiraux}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Rotation}
+
+A rotation is a rigid-body tranformation that keeps the origin unchanged. A rotation can be
+represented by a $3\times3$ matrix $R$ satisfying:
+\begin{equation}\label{eq:rotation-matrix}
+RR^T = I_3 \ \mbox{and}\ \det(R) = 1
+\end{equation}
+where $I_3$ is the identity matrix.
+The set of rotation is called \textit{Special orthogonal group} and is denoted by $SO(3)$.
+
+\subsection{rotation motion}
+
+Let us consider a mapping $R$ from $\reals$ to $SO(3)$ representing a time-varying rotation.
+A point $\vect{u}\in\reals^3$ is mapped at time $t$ to $R(t)\vect{u}$. The velocity at time $t$
+of this point is given by $\dot{R}(t)\vect{u}$.
+
+Let us differentiate~(\ref{eq:rotation-matrix}):
+\begin{eqnarray}
+  \dot{R} R^T + R \dot{R^T} = 0 \\
+  \dot{R} R^T + (\dot{R}R^T)^T = 0
+  \label{eq:dotR}
+\end{eqnarray}
+The latter equality states that $\dot{R}R^T$ is a skew-symmetric matrix.
+
+Let $\omega=(\omega_1,\omega_2,\omega_3)\in\reals^3$ be a vector. We denote by
+\begin{equation}\label{eq:skew-symmetric}
+  \left[\omega\right]_{\times} = \left(\begin{array}{ccc}
+    0 & -\omega_3 & \omega_2 \\
+    \omega_3 & 0 & -\omega_1 \\
+    -\omega_2 & \omega_1 & 0
+  \end{array}\right)
+\end{equation}
+Let us notice that for any $\omega$ and any $\vect{u}$ in $\reals^3$,
+$$
+\left[\omega\right]_{\times}\vec{u} = \omega\times\vec{u}.
+$$
+where $\times$ denotes the cross product.
+From~(\ref{eq:dotR}), we can state that there exists $\omega\in\reals^3$ such that
+\begin{eqnarray*}
+\dot{R}R^T &=& \left[\omega\right]_{\times}\\
+\dot{R} &=& \left[\omega\right]_{\times} R\\
+\end{eqnarray*}
+The velocity of point $\vect{u}$ defined above along the rotation motion is therefore given by
+$$
+\dot{R}(t)\vect{u} = \left[\omega\right]_{\times} R\,\vect{u} = \omega\times(R\,\vect{u}).
+$$
+which is the well known formula giving the velocity of a point moving on an object with angular velocity $\omega$.
+
+\subsection{Exponential}
+
+Let us consider a rotation motion $R(t)$ starting at $I_3$ and with constant angular velocity $\omega\in\reals^3$:
+\begin{eqnarray*}
+  R(0) &=& I_3\\
+  \dot{R}(t) &=& \left[\omega\right]_{\times} R(t)
+\end{eqnarray*}
+It is easy to state that the solution to this differential equation is given by
+$$
+R(t) = \exp(t \left[\omega\right]_{\times}) = \sum_{i=0}^{\infty}\frac{1}{i!}t^i \left[\omega\right]_{\times}^i
+$$
+
+\subsection{Logarithm}
+
+The $\exp$ mapping from the space of skew-symmetric matrices to $SO(3)$ is surjective. This means that for any $R\in SO(3)$, there exists $\omega\in\reals^3$ such that
+$$
+R = \exp(\left[\omega\right]_{\times})
+$$
+we define $\log(R)$ as the skew-symmetric matrix of smaller norm among all solutions of the above equation.
+
+By extension, we will sometimes confuse the skew-symmetric matrix with the underlying vector and write
+$$
+\omega = \log(R)\ \mbox{instead of}\ \left[\omega\right]_{\times} = \log(R)
+$$
+
+\section{Rigid-body tranformation}
+
+A rigid-body tranformation $M$ is a mapping from $\reals^3$ to itself that preserves distances and angles. Any rigid-body tranformation can be expressed as:
+$$
+\forall \vect{p}\in\reals^3,\ M(\vect{p}) = R\,\vect{p} + \trans
+$$
+where $R\in SO(3)$ is a rotation matrix and $\trans$ is a vector.
+
+The space of rigid-body tranformations is called the \textit{special euclidean group} and is denoted by $SE(3)$.
+
+\subsection{Homogeneous matrix}
+
+A rigid-body tranformation can be represented by a $4\times4$ matrix as follows:
+$$
+H = \left(\begin{array}{cc}
+  R & \trans\\
+  0 & 1
+\end{array}\right).
+$$
+By adding a one as the fourth componentof $\vect{p}$, the rigid-body tranformation can be represented by a matrix-vector product as follows:
+$$
+\left(\begin{array}{c}M(\vect{p})\\1\end{array}\right) = H\left(\begin{array}{c}\vect{p}\\1\end{array}\right) = \left(\begin{array}{c}R\,\vect{p}+\trans\\1\end{array}\right)
+$$
+
+$H$ is called a homogeneous matrix.
+      
+\section{Rigid-body motion}
+
+Let us consider a rigid-body motion represented by a time varying homogeneous matrix $H(t)$.
+At time $t$, point $\vect{p}$ is moved to $R(t)\,\vect{p}+\trans(t)$.
+
+The velocity of this point at time $t$ is thus given by
+$$
+\left(\begin{array}{c}\vect{\dot{p}}\\0\end{array}\right) = \dot{H}(t)\left(\begin{array}{c}\vect{p}\\1\end{array}\right)\\
+\ \ \ \mbox{or}\ \ \ \vect{\dot{p}} = \left[\omega\right]_{\times} R\,\vect{p}+\dtrans
+$$
+
+$\dtrans$ is the velocity of the image of the origin at time $t$. Let us denote by $\vect{v}$ this velocity expressed in the moving frame:
+$$
+\vect{v} = R^T\dtrans.
+$$
+Similarly, let us denote by $\Omega$ the angular velocity expressed in the moving frame:
+$$
+\Omega = R^T \omega
+$$
+If we admit that
+$$
+\left[R^T\omega\right]_{\times} = R^T\left[\omega\right]_{\times} R.
+$$
+Then, we can write
+\begin{equation}\label{eq:diff-SE3}
+\dot{H} = \left(\begin{array}{cc}R \left[\Omega\right]_{\times} & R\vect{v}\\0 & 0\end{array}\right)=
+  H \left(\begin{array}{cc} \left[\Omega\right]_{\times} & \vect{v}\\0 & 0\end{array}\right)
+\end{equation}
+
+If we consider a motion with constant linear velocity of the origin and angular velocity expressed in the moving frame, and starting at identity, Equation~(\ref{eq:diff-SE3}) can be seen as a differential equation in $H$. The solution to this equation is
+$$
+H(t) = \exp t \left(\begin{array}{cc} \left[\Omega\right]_{\times} & \vect{v}\\0 & 0\end{array}\right)
+  = \sum_{i=0}^{\infty}\frac{1}{i!}t^i \left(\begin{array}{cc} \left[\Omega\right]_{\times} & \vect{v}\\0 & 0\end{array}\right)^i
+$$
+
+The motion defined by $H(t)$ is called a screw motion. It has the following properties:
+\begin{itemize}
+\item if $\Omega = 0$, this is a translation of constant velocity $\vect{v}$,
+\item otherwise there exists a straight line called the \textit{axis} of the screw motion such that the motion of the points of the axis is a pure translation of constant velocity along the axis.
+\end{itemize}
+
+Similarly, we define the logarithm of a rigid-body transformation as the screw motion of minimal norm whose exponential is the rigid-body transformation. For some singular rigid-body transformations, the logarithm may not be uniquely defined.
+
+\section{What you need to remember}
+
+\begin{enumerate}
+\item The derivative of a rigid-body motion is a screw represented by the linear and angular velocities of the image of the origin by the rigid-body motion and expressed in the moving frame.
+\item the exponential maps screw velocities to rigid-body transformations.
+\item The logarithm maps the other way back and is uniquely defined in a neighborhood of $0\in\reals^6$.
+\item this mapping defines a distance in $SE(3)$ as follows:
+  $$d(M_1,M_2) = \|\log M_1^{-1}M_2 \|.$$
+The distance is indeed equal to zero if and only if $M_1=M_2$.
+\end{enumerate}
+
+\section{Notations}
+
+Following the properties outlined in the previous sections, we define the
+following notation. Let $\mathbf{p}_1, \mathbf{p}_2$ be elements of $SO(3)$
+(respectively $SE(3)$):
+$$
+\mathbf{p}_{2} \ominus \mathbf{p}_{1} = \log(p_{1}^{-1}p_{2})
+$$
+is the constant velocity in $\reals^3$ (respectively $\reals^6$) that drives
+$\mathbf{p}_{1}$ to $\mathbf{p}_{2}$.
+
+Similarly, let $\mathbf{u}\in\reals^3$ (respectively $\reals^6$) be a velocity,
+$$
+\mathbf{p}_1 \oplus \mathbf{u} = \mathbf{p}_1 \exp\ \mathbf{u}
+$$
+is the the element of $SO(3)$ (respectively $SE(3)$) reached after following
+the constant velocity $\mathbf{u}$ from $\mathbf{p}_1$.
+
+\end{document}

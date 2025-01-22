@@ -1,0 +1,135 @@
+Understanding the kinematic chain
+=================================
+
+Objective
+---------
+Understand the notion of kinematic chain and of configuration
+
+Displaying Talos
+----------------
+Open a python terminal and go to the `script` directory.
+By typing CTRL+SHIFT+T in the terminal, you can open another terminal in the
+same window.
+
+NOTE: Each terminal should be initialized. Initialization depends on the installation: `conda activate` or `source config.sh`.
+
+In the first terminal, type
+[source,sh]
+----
+gepetto-gui
+----
+A window opens that we call the viewer.
+
+In the second terminal, type
+[source,python]
+----
+python -i talos.py
+----
+
+You should see a humanoid robot called Talos.
+
+Look at the code in file
+
+* +talos.py+,
+
+Playing with the configuration vector
+-------------------------------------
+
+In the python terminal, a variable of type `numpy.array` is defined:
+[source,python]
+----
+>>> q0
+array([0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+       0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+       0., 0., 0., 0., 0.])
+----
+
+This vector represents the configuration of the robot as displayed in the viewer.
+
+* The 3 first values represent the translation of the waist,
+* the 4 following values represent the orientation of the waist as a Quaternion: xi + yj + zk + w.
+* the following values represent each joint angle. A dictionary in the variable `robot` maps
+joint names with their index in the configuration vector.
+
+[source,python]
+----
+>>> robot.name_to_config_index
+{'universe': -1, 'root_joint': 0, 'leg_left_1_joint': 7, 'leg_left_2_joint': 8, 'leg_left_3_joint': 9, 'leg_left_4_joint': 10, 'leg_left_5_joint': 11, 'leg_left_6_joint': 12, 'leg_right_1_joint': 13, 'leg_right_2_joint': 14, 'leg_right_3_joint': 15, 'leg_right_4_joint': 16, 'leg_right_5_joint': 17, 'leg_right_6_joint': 18, 'torso_1_joint': 19, 'torso_2_joint': 20, 'arm_left_1_joint': 21, 'arm_left_2_joint': 22, 'arm_left_3_joint': 23, 'arm_left_4_joint': 24, 'arm_left_5_joint': 25, 'arm_left_6_joint': 26, 'arm_left_7_joint': 27, 'gripper_left_joint': 28, 'arm_right_1_joint': 29, 'arm_right_2_joint': 30, 'arm_right_3_joint': 31, 'arm_right_4_joint': 32, 'arm_right_5_joint': 33, 'arm_right_6_joint': 34, 'arm_right_7_joint': 35, 'gripper_right_joint': 36, 'head_1_joint': 37, 'head_2_joint': 38}
+----
+
+For example, you can move the left arm by executing the following commands. Look at the viewer when executing the last command:
+
+[source,python]
+----
+i = robot.name_to_config_index["arm_left_2_joint"]
+q0[i] += .1
+robot.display(q0)
+----
+
+Another dictionary maps joint names to their index in the vector of joints:
+
+[source,python]
+----
+>>> robot.name_to_joint_index
+{'universe': 0, 'root_joint': 1, 'leg_left_1_joint': 2, 'leg_left_2_joint': 3, 'leg_left_3_joint': 4, 'leg_left_4_joint': 5, 'leg_left_5_joint': 6, 'leg_left_6_joint': 7, 'leg_right_1_joint': 8, 'leg_right_2_joint': 9, 'leg_right_3_joint': 10, 'leg_right_4_joint': 11, 'leg_right_5_joint': 12, 'leg_right_6_joint': 13, 'torso_1_joint': 14, 'torso_2_joint': 15, 'arm_left_1_joint': 16, 'arm_left_2_joint': 17, 'arm_left_3_joint': 18, 'arm_left_4_joint': 19, 'arm_left_5_joint': 20, 'arm_left_6_joint': 21, 'arm_left_7_joint': 22, 'gripper_left_joint': 23, 'arm_right_1_joint': 24, 'arm_right_2_joint': 25, 'arm_right_3_joint': 26, 'arm_right_4_joint': 27, 'arm_right_5_joint': 28, 'arm_right_6_joint': 29, 'arm_right_7_joint': 30, 'gripper_right_joint': 31, 'head_1_joint': 32, 'head_2_joint': 33}
+----
+
+Note that these two dictionaries are different. Note that variable `robot` also contains 3 members
+called
+
+* `waistJointId`,
+* `leftFootJointId`,
+* `rightFootJointId`,
+
+that contain the indices of the latter dictionary corresponding to the waist, left foot and right
+foot.
+
+[source,python]
+----
+robot.waistJointId
+robot.leftFootJointId
+robot.rightFootJointId
+----
+These members will be useful in exercise 2.
+
+Computing forward kinematics
+----------------------------
+
+To compute forward kinematics, we need to create a data structure that will store the results of the
+computation and then call function `forwardKinematics` with the robot model, the data structure and
+the robot configuration.
+
+[source,python]
+----
+data = robot.model.createData()
+from pinocchio import forwardKinematics
+forwardKinematics(robot.model, data, q0)
+----
+The poses of each joint are stored in variable `data` and can be retrieved using the joint index
+as follows:
+
+[source,python]
+----
+i = robot.name_to_joint_index["head_2_joint"]
+data.oMi[i]
+----
+
+`data.oMi[i]` represents a rigid-body displacement: `<class 'pinocchio.pinocchio_pywrap.SE3'>`.
+The latter class has a method called `act` that computes the image of a point in space.
+
+[source,python]
+----
+P = np.array([1,0,0])
+data.oMi[i].act(P)
+----
+
+Computing the center of mass
+----------------------------
+
+Similarly, the center of mass of the robot can be obtained with the following lines of code:
+
+[source,python]
+----
+from pinocchio import centerOfMass
+com = centerOfMass(robot.model, data, q0)
+----
