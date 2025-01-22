@@ -142,7 +142,16 @@ class SlidingMotion(object):
         integrand = Integrand(self.bezier)
         integral_value = simpson(integrand, 0, 1, 100) # with n_intervals = 100
         
-        theta_0 = self.bezier(0)[2]# TODO: q0
+        # theta_0 = self.bezier(0)[2]# TODO: q0i
+        '''
+        data = self.robot.model.createData()
+        forwardKinematics(self.robot.model, data, self.q0)
+        x0 = self.robot.waistRefPose.translation(0)
+        y0 = self.robot.waistRefPose.translation(1)
+
+        theta_0 = atan2(self.robot.waistRefPose.rotation[1, 0], self.robot.waistRefPose.rotation[0,0])
+        '''
+        theta_0 = 0
         theta_1 = end[2]
         B_dot_0, B_dot_1 = self.derivative(0), self.derivative(1)
 
