@@ -141,7 +141,7 @@ class SlidingMotion(object):
         assert(len(X.shape) == 1)
         self.bezier.controlPoints = X.reshape((6, 3))
         integrand = Integrand(self.bezier)
-        integral_value = simpson(integrand, 0, 1, 100) # with n_intervals = 100
+        integral_value = simpson(integrand, 0, 1, 5000) # with n_intervals = 5000
         
         # theta_0 = self.bezier(0)[2]# TODO: q0i
             
@@ -151,8 +151,8 @@ class SlidingMotion(object):
         x0 = ik.waistRefPose.translation[0]
         y0 = ik.waistRefPose.translation[1]
         
-        self.theta_0 = atan2(ik.waistRefPose.rotation[1, 0], ik.waistRefPose.rotation[0,0])
-        self.theta_1 = end[2]
+        theta_0 = atan2(ik.waistRefPose.rotation[1, 0], ik.waistRefPose.rotation[0,0])
+        theta_1 = end[2]
         B_dot_0, B_dot_1 = self.derivative(0), self.derivative(1)
 
         cost_boundary_start = np.dot([-np.sin(theta_0), np.cos(theta_0), 0], B_dot_0)
