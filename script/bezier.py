@@ -34,6 +34,7 @@ from talos import Robot
 from scipy.optimize import fmin_slsqp
 from cop_des import CoPDes
 from walking_motion_2 import WalkingMotion
+from inverse_kinematics import InverseKinematics
 
 class Bezier(object):
     """
@@ -143,16 +144,15 @@ class SlidingMotion(object):
         integral_value = simpson(integrand, 0, 1, 100) # with n_intervals = 100
         
         # theta_0 = self.bezier(0)[2]# TODO: q0i
-        '''
+            
         data = self.robot.model.createData()
         forwardKinematics(self.robot.model, data, self.q0)
-        x0 = self.robot.waistRefPose.translation(0)
-        y0 = self.robot.waistRefPose.translation(1)
-
-        theta_0 = atan2(self.robot.waistRefPose.rotation[1, 0], self.robot.waistRefPose.rotation[0,0])
-        '''
-        theta_0 = 0
-        theta_1 = end[2]
+        ik = InverseKinematics(self.robot)
+        x0 = ik.waistRefPose.translation[0]
+        y0 = ik.waistRefPose.translation[1]
+        
+        self.theta_0 = atan2(ik.waistRefPose.rotation[1, 0], ik.waistRefPose.rotation[0,0])
+        self.theta_1 = end[2]
         B_dot_0, B_dot_1 = self.derivative(0), self.derivative(1)
 
         cost_boundary_start = np.dot([-np.sin(theta_0), np.cos(theta_0), 0], B_dot_0)
@@ -204,9 +204,10 @@ class SlidingMotion(object):
         return res
 
     def computeMotion(self):
+        '''
         configs = list()
         self.solve()
-
+        
         steps = list()
         ts = np.linspace(0, 1, 10)
         
@@ -218,7 +219,23 @@ class SlidingMotion(object):
             else:
                 steps.append(self.leftFootPose(pose))
         self.steps = steps     
+        '''
+        trajectory = [
+            np.array([0, 0, 0]),
+            np.array([0.1, 0, 0]),
+            np.array([0.2, 0, 0]),
+            np.array([0.3, 0, 0]),
+            np.array([0.4, 0, 0]),
+        ]
         
+        steps = list()
+        for i in range(len(trajectory)):
+            pose = trajectory[i]
+            if len(steps) % 2 == 0:
+                steps.append(self.rightFootPose(pose))
+            else:
+                steps.append(self.leftFootPose(pose))
+
         wm = WalkingMotion(self.robot)
         configs = wm.compute(q0, steps)
 
@@ -226,6 +243,7 @@ class SlidingMotion(object):
 
 if __name__ == '__main__':
     from talos import Robot
+    import matplotlib.pyplot as plt
     robot = Robot()
     q0 = np.array([
         0.00000000e+00, 0.00000000e+00, 9.50023790e-01, 3.04115703e-04,
@@ -238,8 +256,20 @@ if __name__ == '__main__':
         0.00000000e+00, 0.00000000e+00, -2.00000000e-01, 0.00000000e+00,
         0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
         0.00000000e+00, 0.00000000e+00, 0.00000000e+00])
+    
     end = np.array([2, 1, 1.57])
+    #end = np.array([0.5, 0, 0])
     sm = SlidingMotion(robot, q0, end)
+    control_points = sm.solve()
+    bt = Bezier(control_points)
+    ls = np.linspace(0,1,10)
+    X_Y = [bt(t) for t in ls]
+    X = [t[0] for t in X_Y]
+    Y = [t[1] for t in X_Y]
+    plt.plot(X, Y)
+    plt.show()
+
+    '''
     configs = sm.computeMotion()
     for q in configs:
         time.sleep(1e-2)
@@ -264,3 +294,4 @@ if __name__ == '__main__':
     ax2.plot(lf_x, lf_y, '*', label="left foot x-y path")
 
     plt.show()
+    '''

@@ -110,8 +110,8 @@ class SwingFootTrajectory(object):
 #
 class WalkingMotion(object):
     step_height = 0.05
-    single_support_time = .1
-    double_support_time = .02
+    single_support_time = .5
+    double_support_time = .1
     def __init__(self, robot):
         self.robot = robot
 
@@ -141,9 +141,6 @@ class WalkingMotion(object):
         steps_ = np.array([[elmt[0], elmt[1]] for elmt in steps])
         theta  = np.array([elmt[2] for elmt in steps])
 
-        #step_l = [step for step in steps_ if step[1] == 0.1]
-        #step_r = [step for step in steps_ if step[1] == -0.1]
-
         step_l = [np.array([elmt[0], elmt[1]])  for elmt in steps_[1::2]]
         step_r = [np.array([elmt[0], elmt[1]])  for elmt in steps_[0::2]]
 
@@ -163,30 +160,25 @@ class WalkingMotion(object):
             self.lf_traj.segments.append(SwingFootTrajectory(t,t+sst, current_l, end_l, self.step_height))
             current_l = end_l
             self.rf_traj.segments.append(Constant(t, t+sst, current_r))
-        
             t += sst
 
             #stabilize 
             self.rf_traj.segments.append(Constant(t, t+dst, current_r))
             self.lf_traj.segments.append(Constant(t, t+dst, current_l))
-
             t += dst
             
             #right step 
             self.rf_traj.segments.append(SwingFootTrajectory(t,t+sst, current_r, end_r, self.step_height))
             current_r = end_r
             self.lf_traj.segments.append(Constant(t, t+sst,current_l))
-
             t += sst
 
             #stabilize 
             self.rf_traj.segments.append(Constant(t, t+dst, current_r))
-            self.lf_traj.segments.append(Constant(t, t+dst, current_l))
-
+            self.lf_traj.segments.append(Constant(t, t+dst, current_l))     
             t += dst
         
-        #self.com_trajectory = ComTrajectory(com[0:2], steps, np.array([1.6, .2]), com[2])
-        self.com_trajectory = ComTrajectory(np.array([0,0]), steps_, np.array([1.6, .2]), com[2])
+        self.com_trajectory = ComTrajectory(com[0:2], steps_, steps_[-1][0:2], com[2])
         X = self.com_trajectory.compute()
         times = 0.01 * np.arange(len(X)//2)
 
@@ -267,13 +259,41 @@ if __name__ == "__main__":
     wm = WalkingMotion(robot)
     # First two values correspond to initial position of feet
     # Last two values correspond to final position of feet
-    steps = [np.array([0,-.1, 1.0]), np.array([0.4, .1, 1.0]),
-              np.array([.8,  -.1, 1.0]), np.array([1.2, .1, 1.0]),
-              np.array([1.6, -.1, 1.0]), np.array([1.6, .1, 1.0])]
+    steps = [np.array([0,-.1, 0.0]), np.array([0.4, .1, 0.0]),
+              np.array([.8,  -.1, 0.0]), np.array([1.2, .1, 0.0]),
+              np.array([1.6, -.1, 0.0]), np.array([1.6, .1, 0.0])]
 
-   # steps = [np.array([0,-.1]), np.array([0.4, .1]),
-   #           np.array([.8,  -.1]), np.array([1.2, .1]),
-   #           np.array([1.6, -.1]), np.array([1.6, .1])]
+    '''
+    steps = [
+        np.array([0, 0, 1.3258176636680326]                                  ),
+        np.array([0.5904800000000003, 1.7829000000000006, 1.162114620630219] ),
+        np.array([1.3273600000000005, 3.084800000000001, 0.9221851517623513] ),
+        np.array([2.16564, 3.8786999999999994, 0.5553601521989865]           ),
+        np.array([3.06752, 4.1856, 0.08651377937739066]                      ),
+        np.array([4.0, 4.0625, -0.3217505543966422]                          ),
+        np.array([4.932480000000001, 3.5904000000000007, -0.588802763408805] ),
+        np.array([5.834359999999999, 2.8623000000000003, -0.7551791836781613]),
+        np.array([6.67264, 1.9711999999999996, -0.8712428117666042]          ),
+        np.array([7.40952, 0.9981, -0.9756894991661658]                      )
+    ]
+    
+    steps = [
+        np.array([5.0, 0.0, 1.5707963267948966]),
+        np.array([4.045084971874737, 2.938926261462366, 2.2689280275926285]),
+        np.array([1.5450849718747373, 4.755282581475767, 2.9670597283903604]),
+        np.array([-1.5450849718747368, 4.755282581475768, 3.6651914291880923]),
+        np.array([-4.045084971874736, 2.9389262614623664, 4.363323129985824]),
+        np.array([-5.0, 6.123233995736766e-16, 5.061454830783555]),
+        np.array([-4.045084971874738, -2.938926261462365, 5.759586531581287]),
+        np.array([-1.5450849718747381, -4.755282581475767, 6.457718232379019]),
+        np.array([1.5450849718747355, -4.755282581475768, 7.155849933176751]),
+        np.array([4.045084971874736, -2.938926261462367, 7.853981633974483])
+    ]
+    '''
+
+    # steps = [np.array([0,-.1]), np.array([0.4, .1]),
+    #           np.array([.8,  -.1]), np.array([1.2, .1]),
+    #           np.array([1.6, -.1]), np.array([1.6, .1])]
 
     configs = wm.compute(q, steps)
     for q in configs:

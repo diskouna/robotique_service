@@ -83,6 +83,7 @@ class ComTrajectory(object):
         self.cop_des = cop_des
         #Discretize cop_des
         times = np.array([delta_t * k for k in range(N)])
+
         cop = np.array(list(map(cop_des, times)))
         #stacking the values of cop 
         cop2 = cop.flatten()

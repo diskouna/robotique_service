@@ -31,8 +31,8 @@ from tools import Affine, Constant, Piecewise
 # Compute a desired trajectory for the center of pressure, piecewise affine linking the
 # input step positions in the plane
 class CoPDes(Piecewise):
-    single_support_time = .1
-    double_support_time = .02
+    single_support_time = .5
+    double_support_time = .1
     # constructor
     #   - start: initial position of the CoP
     #   - steps: list of 2D vectors representing the successive positions of the feet,
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     steps = [np.array([0, -.1]), np.array([0.4, .1]),
              np.array([.8, -.1]), np.array([1.2, .1]),
              np.array([1.6, -.1]), np.array([1.6, .1])]
-    end = np.array([1.2,0.])
+    end = np.array([1.6,0.])
     cop_des = CoPDes(start, steps, end)
     times = 0.01 * np.arange(500)
     cop   = np.array(list(map(cop_des, times)))
