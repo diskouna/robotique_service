@@ -204,12 +204,6 @@ class WalkingMotion(object):
         ax3.legend()
         plt.show()
 
-        robot = self.robot
-        q0 = neutral (robot.model)
-        q0 [robot.name_to_config_index["leg_right_4_joint"]] = .2
-        q0 [robot.name_to_config_index["leg_left_4_joint"]] = .2
-        q0 [robot.name_to_config_index["arm_left_2_joint"]] = .2
-        q0 [robot.name_to_config_index["arm_right_2_joint"]] = -.2
         
         div = len(rf) // len(theta)
         
@@ -227,6 +221,14 @@ class WalkingMotion(object):
 
             if  t % div == 0 and i < len(theta)-1: 
                 i+=1
+
+            robot = self.robot
+            q0 = neutral (robot.model)
+            q0 [robot.name_to_config_index["leg_right_4_joint"]] = .2
+            q0 [robot.name_to_config_index["leg_left_4_joint"]] = .2
+            q0 [robot.name_to_config_index["arm_left_2_joint"]] = .2
+            q0 [robot.name_to_config_index["arm_right_2_joint"]] = -.2
+
             q = ik.solve (q0)
             configs.append(q)
 

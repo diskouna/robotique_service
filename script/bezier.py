@@ -125,42 +125,50 @@ class SlidingMotion(object):
         - end: end configuration specified as (x, y, theta) for the position
                 and orientation in the plane.
         """
-        self.robot = robot
-        self.q0    = q0
-        self.end   = end
-        self.controlPoints = np.linspace(q0[:3], end, 6)
-        self.bezier = Bezier(self.controlPoints)
-        self.derivative = self.bezier.derivative()
-        self.steps = list()
-        self.bezier_path = list()
+        self.robot   = robot
+        self.q0      = q0
+        self.end     = end
+        
+        data = robot.model.createData()
+        forwardKinematics(robot.model, data, q0)
+        ik = InverseKinematics(robot)
+        x0 = ik.waistRefPose.translation[0]
+        y0 = ik.waistRefPose.translation[1]
+        
+        self.theta_0 = atan2(ik.waistRefPose.rotation[1, 0], ik.waistRefPose.rotation[0,0])
+        self.theta_1 = end[2]
+        
+        # Boundary control points
+        self.initial = np.array([0, 0, self.theta_0])
+        self.end     = end
 
     def cost(self, X):
         """
         Compute the cost of a trajectory represented by a Bezier curve
+            X is the flatten list of 4 (6-2) unknown control points 
+            coordinates (x, y, theta)
         """
         assert(len(X.shape) == 1)
-        self.bezier.controlPoints = X.reshape((6, 3))
-        integrand = Integrand(self.bezier)
-        integral_value = simpson(integrand, 0, 1, 5000) # with n_intervals = 5000
+        controlPoints  = np.hstack([self.initial, X, self.end]).reshape(6, 3)
+        bezier         = Bezier(controlPoints)
+        derivative     = bezier.derivative()
+        integrand      = Integrand(bezier)
+        integral_value = simpson(integrand, 0, 1, 500) # with n_intervals = 100
         
-        # theta_0 = self.bezier(0)[2]# TODO: q0i
-            
-        data = self.robot.model.createData()
-        forwardKinematics(self.robot.model, data, self.q0)
-        ik = InverseKinematics(self.robot)
-        x0 = ik.waistRefPose.translation[0]
-        y0 = ik.waistRefPose.translation[1]
-        
-        theta_0 = atan2(ik.waistRefPose.rotation[1, 0], ik.waistRefPose.rotation[0,0])
-        theta_1 = end[2]
-        B_dot_0, B_dot_1 = self.derivative(0), self.derivative(1)
+        theta_0  = bezier(0)[2]
+        theta_1  = bezier(1)[2]
+        B_dot_0  = derivative(0) 
+        B_dot_1  = derivative(1)
 
         cost_boundary_start = np.dot([-np.sin(theta_0), np.cos(theta_0), 0], B_dot_0)
         cost_boundary_end   = np.dot([-np.sin(theta_1), np.cos(theta_1), 0], B_dot_1)
         
         cost_boundary = cost_boundary_start**2 + cost_boundary_end**2
+        total_cost = integral_value + self.beta * cost_boundary
+        
+        #print(f"cost : {total_cost} {X}")
 
-        return integral_value + self.beta * cost_boundary
+        return total_cost
 
     def boundaryConstraints(self, X):
         """
@@ -168,12 +176,15 @@ class SlidingMotion(object):
         (resp. at the end) of the trajectory with the unit vector of initial
         (resp. end) orientation.
         """
-        self.bezier.controlPoints = X.reshape((6, 3))
-        B_dot_start = self.bezier.derivative()(0)
-        B_dot_end   = self.bezier.derivative()(1)
+        controlPoints  = np.hstack([self.initial, X, self.end]).reshape(6, 3)
+        bezier         = Bezier(controlPoints)
+        derivative     = bezier.derivative()
+        integrand      = Integrand(bezier)
+        B_dot_start    = derivative(0)
+        B_dot_end      = derivative(1)
 
-        c_start = np.dot([-np.sin(self.q0[2]), np.cos(self.q0[2]), 0], B_dot_start)
-        c_end = np.dot([-np.sin(self.end[2]), np.cos(self.end[2]), 0], B_dot_end)
+        c_start = np.dot([-np.sin(self.theta_0), np.cos(self.theta_0), 0], B_dot_start)
+        c_end = np.dot([-np.sin(self.theta_1), np.cos(self.theta_1), 0], B_dot_end)
 
         return [c_start, c_end]
 
@@ -181,14 +192,13 @@ class SlidingMotion(object):
         """
         Solve the optimization problem. Initialize with a straight line
         """
-        x0 = self.controlPoints.flatten()
-
+        x0 = np.linspace(self.initial, self.end, 4).flatten() 
         result = fmin_slsqp(
             func=self.cost,
             x0=x0,
             f_eqcons=self.boundaryConstraints
         )
-        self.controlPoints = result.reshape((6, 3))
+        self.controlPoints = np.hstack([self.initial, result, self.end]).reshape((6, 3))
         return self.controlPoints
 
     def leftFootPose(self, pose):
@@ -204,41 +214,24 @@ class SlidingMotion(object):
         return res
 
     def computeMotion(self):
-        '''
-        configs = list()
-        self.solve()
+        # Generate bezier curve steps
+        controlPoints =  self.solve().reshape(6, 3)
+        bezier        = Bezier(controlPoints)
         
+        # Sample the curve point 
+        poses = np.array([bezier(t) for t in np.linspace(0,1,20)])
         steps = list()
-        ts = np.linspace(0, 1, 10)
-        
-        for t in ts:
-            pose = self.bezier(t)
-            self.bezier_path.append(pose)
-            if len(configs) % 2 == 0:
-                steps.append(self.rightFootPose(pose))
-            else:
-                steps.append(self.leftFootPose(pose))
-        self.steps = steps     
-        '''
-        trajectory = [
-            np.array([0, 0, 0]),
-            np.array([0.1, 0, 0]),
-            np.array([0.2, 0, 0]),
-            np.array([0.3, 0, 0]),
-            np.array([0.4, 0, 0]),
-        ]
-        
-        steps = list()
-        for i in range(len(trajectory)):
-            pose = trajectory[i]
+        for i in range(len(poses)):
+            pose = poses[i]
             if len(steps) % 2 == 0:
                 steps.append(self.rightFootPose(pose))
             else:
                 steps.append(self.leftFootPose(pose))
-
+        
+        # Apply the sampling point to the walkingMotion function
         wm = WalkingMotion(self.robot)
         configs = wm.compute(q0, steps)
-
+        
         return configs 
 
 if __name__ == '__main__':
@@ -256,42 +249,53 @@ if __name__ == '__main__':
         0.00000000e+00, 0.00000000e+00, -2.00000000e-01, 0.00000000e+00,
         0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
         0.00000000e+00, 0.00000000e+00, 0.00000000e+00])
-    
     end = np.array([2, 1, 1.57])
-    #end = np.array([0.5, 0, 0])
-    sm = SlidingMotion(robot, q0, end)
-    control_points = sm.solve()
-    bt = Bezier(control_points)
+    
+    use_checkpoint = True
+
+    configs = None
+    sm      = None
+
+    if use_checkpoint:
+        configs = np.load('configs_bezier.npy')
+    else:
+        sm = SlidingMotion(robot, q0, end)
+        configs = sm.computeMotion()
+        np.save('configs_bezier.npy', configs)
+
+    for q in configs:
+        time.sleep(1e-2)
+        robot.display(q)
+
+    '''
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        ax1 = fig.add_subplot(2, 1, 1)
+        ax2 = fig.add_subplot(2, 1, 2)
+        times = 1e-2*np.arange(101)
+        st_rf = sm.steps[0::2]
+        st_lf = sm.steps[1::2]
+
+        rf_x = [elmt[0] for elmt in st_rf]
+        rf_y = [elmt[1] for elmt in st_rf]
+
+        lf_x = [elmt[0] for elmt in st_lf]
+        lf_y = [elmt[1] for elmt in st_lf]
+
+        ax1.plot(rf_x, rf_y, 'o', label="right foot x-y path")
+        ax2.plot(lf_x, lf_y, '*', label="left foot x-y path")
+
+        plt.show()
+    
+    '''
+
+    '''
+    controlPoints = sm.solve()
+    bt = Bezier(controlPoints)
     ls = np.linspace(0,1,10)
     X_Y = [bt(t) for t in ls]
     X = [t[0] for t in X_Y]
     Y = [t[1] for t in X_Y]
     plt.plot(X, Y)
-    plt.show()
-
-    '''
-    configs = sm.computeMotion()
-    for q in configs:
-        time.sleep(1e-2)
-        robot.display(q)
-
-    import matplotlib.pyplot as plt
-    fig = plt.figure()
-    ax1 = fig.add_subplot(2, 1, 1)
-    ax2 = fig.add_subplot(2, 1, 2)
-    times = 1e-2*np.arange(101)
-    #X = np.array(list(map(sm.slidingPath, times)))
-    st_rf = sm.steps[0::2]
-    st_lf = sm.steps[1::2]
-
-    rf_x = [elmt[0] for elmt in st_rf]
-    rf_y = [elmt[1] for elmt in st_rf]
-
-    lf_x = [elmt[0] for elmt in st_lf]
-    lf_y = [elmt[1] for elmt in st_lf]
-
-    ax1.plot(rf_x, rf_y, 'o', label="right foot x-y path")
-    ax2.plot(lf_x, lf_y, '*', label="left foot x-y path")
-
     plt.show()
     '''
