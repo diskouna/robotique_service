@@ -134,13 +134,15 @@ class SlidingMotion(object):
         ik = InverseKinematics(robot)
         x0 = ik.waistRefPose.translation[0]
         y0 = ik.waistRefPose.translation[1]
-        
         self.theta_0 = atan2(ik.waistRefPose.rotation[1, 0], ik.waistRefPose.rotation[0,0])
         self.theta_1 = end[2]
         
         # Boundary control points
         self.initial = np.array([0, 0, self.theta_0])
         self.end     = end
+
+        self.poses = list()
+        self.steps = list()
 
     def cost(self, X):
         """
@@ -153,7 +155,7 @@ class SlidingMotion(object):
         bezier         = Bezier(controlPoints)
         derivative     = bezier.derivative()
         integrand      = Integrand(bezier)
-        integral_value = simpson(integrand, 0, 1, 500) # with n_intervals = 100
+        integral_value = simpson(integrand, 0, 1, 200) # with n_intervals = 1000
         
         theta_0  = bezier(0)[2]
         theta_1  = bezier(1)[2]
@@ -219,7 +221,8 @@ class SlidingMotion(object):
         bezier        = Bezier(controlPoints)
         
         # Sample the curve point 
-        poses = np.array([bezier(t) for t in np.linspace(0,1,20)])
+        poses = np.array([bezier(t) for t in np.linspace(0,1,50)])
+        self.poses = poses
         steps = list()
         for i in range(len(poses)):
             pose = poses[i]
@@ -227,7 +230,8 @@ class SlidingMotion(object):
                 steps.append(self.rightFootPose(pose))
             else:
                 steps.append(self.leftFootPose(pose))
-        
+        self.steps = steps
+
         # Apply the sampling point to the walkingMotion function
         wm = WalkingMotion(self.robot)
         configs = wm.compute(q0, steps)
@@ -249,53 +253,36 @@ if __name__ == '__main__':
         0.00000000e+00, 0.00000000e+00, -2.00000000e-01, 0.00000000e+00,
         0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
         0.00000000e+00, 0.00000000e+00, 0.00000000e+00])
-    end = np.array([2, 1, 1.57])
+   
+    end = np.array([2, 2, 1.57])
     
     use_checkpoint = True
 
     configs = None
     sm      = None
+    poses   = None
+    l_steps = None
+    r_steps = None
 
     if use_checkpoint:
-        configs = np.load('configs_bezier.npy')
+        checkpoint = np.load('bezier_3.npz')
+        configs    = checkpoint['configs']
+        poses      = checkpoint['poses']
     else:
         sm = SlidingMotion(robot, q0, end)
         configs = sm.computeMotion()
-        np.save('configs_bezier.npy', configs)
-
-    for q in configs:
-        time.sleep(1e-2)
-        robot.display(q)
-
-    '''
-        import matplotlib.pyplot as plt
-        fig = plt.figure()
-        ax1 = fig.add_subplot(2, 1, 1)
-        ax2 = fig.add_subplot(2, 1, 2)
-        times = 1e-2*np.arange(101)
-        st_rf = sm.steps[0::2]
-        st_lf = sm.steps[1::2]
-
-        rf_x = [elmt[0] for elmt in st_rf]
-        rf_y = [elmt[1] for elmt in st_rf]
-
-        lf_x = [elmt[0] for elmt in st_lf]
-        lf_y = [elmt[1] for elmt in st_lf]
-
-        ax1.plot(rf_x, rf_y, 'o', label="right foot x-y path")
-        ax2.plot(lf_x, lf_y, '*', label="left foot x-y path")
-
-        plt.show()
+        poses   = sm.poses
+        steps   = sm.steps
+        r_steps = steps[0::2]
+        l_steps = steps[1::2]
+        np.savez('bezier_3', configs=configs, poses=poses, l_steps=l_steps, r_steps=r_steps)
     
-    '''
+    for config in configs:
+        time.sleep(1e-2)
+        robot.display(config)
 
-    '''
-    controlPoints = sm.solve()
-    bt = Bezier(controlPoints)
-    ls = np.linspace(0,1,10)
-    X_Y = [bt(t) for t in ls]
-    X = [t[0] for t in X_Y]
-    Y = [t[1] for t in X_Y]
-    plt.plot(X, Y)
+    fig     = plt.figure()
+    poses_x = [elmt[0] for elmt in poses]
+    poses_y = [elmt[1] for elmt in poses]
+    plt.plot(poses_x, poses_y, label="pose x-y path")
     plt.show()
-    '''
